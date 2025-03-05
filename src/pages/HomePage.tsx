@@ -1,6 +1,7 @@
 
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { Bot, Command, Activity } from "lucide-react";
 import NeonText from "@/components/common/NeonText";
 import GlowButton from "@/components/common/GlowButton";
 

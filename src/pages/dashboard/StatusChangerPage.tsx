@@ -11,13 +11,20 @@ const statusTypes = [
   { value: "competing", label: "Competing in" },
 ];
 
+interface StatusItem {
+  type: string;
+  text: string;
+  isEditing: boolean;
+  interval: number;
+}
+
 const StatusChangerPage = () => {
-  const [statuses, setStatuses] = useState([
+  const [statuses, setStatuses] = useState<StatusItem[]>([
     { type: "playing", text: "with Discord users", isEditing: false, interval: 30 },
     { type: "listening", text: "to commands", isEditing: false, interval: 30 },
   ]);
   
-  const [newStatus, setNewStatus] = useState({ type: "playing", text: "", interval: 30 });
+  const [newStatus, setNewStatus] = useState<StatusItem>({ type: "playing", text: "", isEditing: false, interval: 30 });
   const [isAddingStatus, setIsAddingStatus] = useState(false);
   
   const handleEdit = (index: number) => {

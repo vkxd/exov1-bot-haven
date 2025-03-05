@@ -5,12 +5,14 @@ interface BentoCardProps {
   children: React.ReactNode;
   className?: string;
   hoverable?: boolean;
+  style?: React.CSSProperties;
 }
 
 const BentoCard = ({ 
   children, 
   className = "", 
-  hoverable = true 
+  hoverable = true,
+  style
 }: BentoCardProps) => {
   return (
     <div 
@@ -19,6 +21,7 @@ const BentoCard = ({
         hoverable && "hover:scale-[1.02] hover:shadow-lg hover:shadow-neon-magenta/10",
         className
       )}
+      style={style}
     >
       {children}
     </div>
