@@ -45,16 +45,20 @@ const StatusChangerPage = () => {
     setStatuses(updatedStatuses);
   };
   
-  const handleInputChange = (index: number, field: "type" | "text" | "interval", value: string | number) => {
+  const handleInputChange = (index: number, field: keyof StatusItem, value: string | number) => {
     const updatedStatuses = [...statuses];
-    updatedStatuses[index][field] = value;
+    if (field === 'type' || field === 'text') {
+      updatedStatuses[index][field] = value as string;
+    } else if (field === 'interval') {
+      updatedStatuses[index][field] = value as number;
+    }
     setStatuses(updatedStatuses);
   };
   
   const handleAddStatus = () => {
     if (newStatus.text) {
       setStatuses([...statuses, { ...newStatus, isEditing: false }]);
-      setNewStatus({ type: "playing", text: "", interval: 30 });
+      setNewStatus({ type: "playing", text: "", isEditing: false, interval: 30 });
       setIsAddingStatus(false);
     }
   };
