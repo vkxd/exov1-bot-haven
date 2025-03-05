@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import BentoCard from "@/components/common/BentoCard";
 import GlowButton from "@/components/common/GlowButton";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
-type BotStatus = "online" | "offline" | "restarting";
+type BotStatus = "online" | "offline" | "restarting" | "connecting";
 
 interface BotConfig {
   id: string;
@@ -34,15 +34,15 @@ const BotHostingPage = () => {
       id: "bot-1",
       name: "My Bot",
       token: "MTk4NjIyNzQ4NjQ3NjA3Mjgz.Cl2FMQ.ZnCjm1XVW7vRze4b7Cq4se7NYE8",
-      status: "online",
+      status: "offline",
       memory: {
-        used: 128,
+        used: 0,
         total: 512
       },
-      cpu: 15,
-      uptime: "3 days",
+      cpu: 0,
+      uptime: "0 minutes",
       location: "US East",
-      ping: 42
+      ping: 0
     }
   ]);
   
@@ -55,6 +55,106 @@ const BotHostingPage = () => {
   
   const [processingBot, setProcessingBot] = useState<string | null>(null);
   
+  // Simulated WebSocket for bot status updates
+  useEffect(() => {
+    // This would be a real WebSocket connection to your backend in production
+    const interval = setInterval(() => {
+      setBots(currentBots => 
+        currentBots.map(bot => {
+          if (bot.status === "online") {
+            // Update metrics for online bots
+            return {
+              ...bot,
+              memory: {
+                used: Math.floor(Math.random() * 200) + 100,
+                total: 512
+              },
+              cpu: Math.floor(Math.random() * 25) + 5,
+              ping: Math.floor(Math.random() * 20) + 30,
+              uptime: calculateUptime(bot.uptime)
+            };
+          }
+          return bot;
+        })
+      );
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Helper function to increment uptime for online bots
+  const calculateUptime = (currentUptime: string) => {
+    if (currentUptime.includes("minutes")) {
+      const minutes = parseInt(currentUptime.split(" ")[0]);
+      if (minutes >= 55) {
+        return "1 hours";
+      }
+      return `${minutes + 5} minutes`;
+    } else if (currentUptime.includes("hours")) {
+      const hours = parseInt(currentUptime.split(" ")[0]);
+      if (hours >= 23) {
+        return "1 days";
+      }
+      return `${hours + 1} hours`;
+    } else if (currentUptime.includes("days")) {
+      const days = parseInt(currentUptime.split(" ")[0]);
+      return `${days + 1} days`;
+    }
+    return currentUptime;
+  };
+  
+  const connectBotToDiscord = async (botId: string, token: string) => {
+    const botIndex = bots.findIndex(bot => bot.id === botId);
+    if (botIndex === -1) return;
+    
+    const updatedBots = [...bots];
+    updatedBots[botIndex].status = "connecting";
+    setBots(updatedBots);
+    
+    try {
+      // In a real application, this would be an API call to your backend
+      // which would handle the Discord bot connection
+      await simulateApiCall(token);
+      
+      updatedBots[botIndex].status = "online";
+      updatedBots[botIndex].memory.used = 128;
+      updatedBots[botIndex].cpu = 15;
+      updatedBots[botIndex].uptime = "5 minutes";
+      updatedBots[botIndex].ping = 42;
+      
+      setBots(updatedBots);
+      toast({
+        title: "Bot Connected",
+        description: `${updatedBots[botIndex].name} is now online and active in your Discord server.`,
+      });
+    } catch (error) {
+      updatedBots[botIndex].status = "offline";
+      setBots(updatedBots);
+      
+      toast({
+        title: "Connection Failed",
+        description: "Could not connect to Discord. Please check your bot token.",
+        variant: "destructive"
+      });
+    } finally {
+      setProcessingBot(null);
+    }
+  };
+  
+  // Simulate an API call with potential failure
+  const simulateApiCall = (token: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        // 10% chance of failure to simulate real-world conditions
+        if (Math.random() < 0.1) {
+          reject(new Error("Connection failed"));
+        } else {
+          resolve();
+        }
+      }, 2000);
+    });
+  };
+  
   const toggleBotStatus = (botId: string) => {
     setProcessingBot(botId);
     const botIndex = bots.findIndex(bot => bot.id === botId);
@@ -64,25 +164,26 @@ const BotHostingPage = () => {
     const updatedBots = [...bots];
     const currentStatus = updatedBots[botIndex].status;
     
-    // Simulate a delay for the operation
-    setTimeout(() => {
-      if (currentStatus === "online") {
+    if (currentStatus === "online") {
+      // Stop the bot
+      setTimeout(() => {
         updatedBots[botIndex].status = "offline";
+        updatedBots[botIndex].memory.used = 0;
+        updatedBots[botIndex].cpu = 0;
+        updatedBots[botIndex].uptime = "0 minutes";
+        
+        setBots(updatedBots);
+        setProcessingBot(null);
+        
         toast({
           title: "Bot Stopped",
-          description: `${updatedBots[botIndex].name} has been stopped.`,
+          description: `${updatedBots[botIndex].name} has been disconnected from Discord.`,
         });
-      } else {
-        updatedBots[botIndex].status = "online";
-        toast({
-          title: "Bot Started",
-          description: `${updatedBots[botIndex].name} is now online.`,
-        });
-      }
-      
-      setBots(updatedBots);
-      setProcessingBot(null);
-    }, 1500);
+      }, 1500);
+    } else {
+      // Start the bot - connect to Discord
+      connectBotToDiscord(botId, updatedBots[botIndex].token);
+    }
   };
   
   const restartBot = (botId: string) => {
@@ -95,17 +196,10 @@ const BotHostingPage = () => {
     updatedBots[botIndex].status = "restarting";
     setBots(updatedBots);
     
-    // Simulate a restart process
+    // Restart process
     setTimeout(() => {
-      updatedBots[botIndex].status = "online";
-      setBots(updatedBots);
-      setProcessingBot(null);
-      
-      toast({
-        title: "Bot Restarted",
-        description: `${updatedBots[botIndex].name} has been restarted successfully.`,
-      });
-    }, 3000);
+      connectBotToDiscord(botId, updatedBots[botIndex].token);
+    }, 1500);
   };
   
   const deleteBot = (botId: string) => {
@@ -114,7 +208,7 @@ const BotHostingPage = () => {
     
     toast({
       title: "Bot Deleted",
-      description: "Your bot has been deleted successfully.",
+      description: "Your bot has been removed from the hosting platform.",
       variant: "destructive"
     });
   };
@@ -124,6 +218,15 @@ const BotHostingPage = () => {
       toast({
         title: "Invalid Input",
         description: "Please provide both a name and a valid token for your bot.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!newBot.token.match(/^[A-Za-z0-9_.-]{50,}$/)) {
+      toast({
+        title: "Invalid Token",
+        description: "The token you provided doesn't appear to be a valid Discord bot token.",
         variant: "destructive"
       });
       return;
@@ -150,8 +253,20 @@ const BotHostingPage = () => {
     
     toast({
       title: "Bot Added",
-      description: "Your new bot has been added successfully. Click 'Start' to bring it online.",
+      description: "Your new bot has been added. Click 'Start' to connect it to Discord.",
     });
+  };
+  
+  const getStatusTextColor = (status: BotStatus) => {
+    switch (status) {
+      case "online":
+        return "text-green-400";
+      case "restarting":
+      case "connecting":
+        return "text-yellow-400";
+      default:
+        return "text-red-400";
+    }
   };
   
   return (
@@ -180,9 +295,10 @@ const BotHostingPage = () => {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">{bot.name}</h2>
-                  <p className="text-gray-400 text-sm">
+                  <p className={`text-sm ${getStatusTextColor(bot.status)}`}>
                     {bot.status === "online" ? `Online for ${bot.uptime}` : 
-                     bot.status === "restarting" ? "Restarting..." : "Offline"}
+                     bot.status === "restarting" ? "Restarting..." : 
+                     bot.status === "connecting" ? "Connecting..." : "Offline"}
                   </p>
                 </div>
               </div>
@@ -207,17 +323,18 @@ const BotHostingPage = () => {
                   className={`flex items-center gap-2 ${
                     bot.status === "online" 
                       ? "text-green-400 border-green-500/50 hover:bg-green-500/10" 
-                      : bot.status === "restarting"
+                      : bot.status === "restarting" || bot.status === "connecting"
                       ? "text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/10"
                       : "text-red-400 border-red-500/50 hover:bg-red-500/10"
                   }`}
                   onClick={() => toggleBotStatus(bot.id)}
                   disabled={processingBot === bot.id}
                 >
-                  <Power size={14} />
+                  <Power size={14} className={bot.status === "connecting" ? "animate-pulse" : ""} />
                   <span>
                     {bot.status === "online" ? "Online" : 
-                     bot.status === "restarting" ? "Restarting" : "Offline"}
+                     bot.status === "restarting" ? "Restarting" : 
+                     bot.status === "connecting" ? "Connecting..." : "Start"}
                   </span>
                 </GlowButton>
               </div>
@@ -317,7 +434,7 @@ const BotHostingPage = () => {
           <DialogHeader>
             <DialogTitle>Add New Discord Bot</DialogTitle>
             <DialogDescription>
-              Enter your bot's information to start hosting it on exov1.
+              Enter your bot's information to connect it to our hosting platform.
             </DialogDescription>
           </DialogHeader>
           
